@@ -51,7 +51,10 @@ class Zulia(Client):
 
         # This is a Zulia only plugin used to reload all of our plugins during runtime.
         if message_args[0] == 'reload':
-            # TODO: Add a new permission system.
+            if not message.author.server_permissions.administrator:
+                await self.delete_message(message)
+                return
+
             delete_message = True
 
             # Reload all plugin modules.
