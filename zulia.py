@@ -64,7 +64,7 @@ class Zulia(Client):
                 if hasattr(plugin, 'reinitialize'):
                     await plugin.reinitialize(self)
 
-            await bot.send_message(message.channel, 'Successfully reloaded {} plugins'.format(len(self.plugins)))
+            await self.send_message(message.channel, 'Successfully reloaded {} plugins'.format(len(self.plugins)))
 
         if delete_message: await self.delete_message(message)
 
