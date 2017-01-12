@@ -67,7 +67,7 @@ class Zulia(Client):
 zulia = Zulia('.')
 
 @zulia.event
-async def on_read():
+async def on_ready():
     servers = zulia.servers
 
     for server in servers:
@@ -75,6 +75,7 @@ async def on_read():
 
         fmt_msg = '`Hello members of {name}! I\'m {bot}! I will be here to assist you in any way that I can!`'
         await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
+        print(fmt_msg.format(name=server.name, bot=zulia.user.name))
 
 # TODO: Add a config file.
 zulia.run(environ.get('DISCORD_TOKEN'))
