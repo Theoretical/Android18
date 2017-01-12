@@ -1,6 +1,6 @@
 from sys import modules
 
-async def initialize(bot):
+def initialize(bot):
     pass
 
 async def on_clear(msg, msg_obj):
