@@ -1,5 +1,5 @@
 from aiohttp import get
-from discord import Client, opus
+from discord import Client, opus, enums
 from discord.utils import get
 from importlib import import_module, reload
 from os import environ, listdir
@@ -72,7 +72,7 @@ async def on_ready():
     servers = zulia.servers
 
     for server in servers:
-        main_channel = get(server.channels, type=0)
+        main_channel = get(server.channels, type=enums.ChannelType.text)
 
         fmt_msg = '`Hello members of {name}! I\'m {bot}! I will be here to assist you in any way that I can!`'
         await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
