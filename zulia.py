@@ -71,7 +71,7 @@ async def on_ready():
     servers = zulia.servers
 
     for server in servers:
-        main_channel = server.channels[0]
+        main_channel = list(server.channels)[0]
 
         fmt_msg = '`Hello members of {name}! I\'m {bot}! I will be here to assist you in any way that I can!`'
         await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
