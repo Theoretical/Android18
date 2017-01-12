@@ -74,7 +74,7 @@ async def on_read():
         main_channel = server.channels[0]
 
         fmt_msg = '`Hello members of {name}! I\'m {bot}! I will be here to assist you in any way that I can!`'
-        await zulia.send_message(main_channel, fmt_msg.format(name=server.name, zulia.user.name))
+        await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
 
 # TODO: Add a config file.
 zulia.run(environ.get('DISCORD_TOKEN'))
