@@ -63,7 +63,7 @@ class Zulia(Client):
 
             await bot.send_message(message.channel, 'Successfully reloaded {} plugins'.format(len(self.plugins)))
 
-        if delete_message: self.delete_message(message)
+        if delete_message: await self.delete_message(message)
 
 zulia = Zulia('.')
 
