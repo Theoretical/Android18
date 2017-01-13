@@ -327,7 +327,7 @@ class MusicPlayer:
         length = str(timedelta(seconds=self.current_song.get('duration', 0)))
         total_len = sum([x.get('duration', 0) for x in self.playlist])
         current_playlist = 'Side' if self.use_side_playlist else 'Main'
-        await self.zulia.send_message(msg_obj.channel, '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, r(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
+        await self.zulia.send_message(msg_obj.channel, '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, str(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
 
     async def on_play(self, msg, msg_obj):
         await self.join_default_channel(msg_obj.author)
