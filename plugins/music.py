@@ -164,11 +164,11 @@ class MusicPlayer:
 
     def extract_info(self, *args, **kwargs):
         thread_pool = ThreadPoolExecutor(max_workers=2)
-        return self.zulia.zulia.run_in_executor(thread_pool, functools.partial(self.ytdl.extract_info, *args, **kwargs))
+        return self.zulia.loop.run_in_executor(thread_pool, functools.partial(self.ytdl.extract_info, *args, **kwargs))
 
     def process_info(self, item):
         thread_pool = ThreadPoolExecutor(max_workers=2)
-        return self.zulia.zulia.run_in_executor(thread_pool, functools.partial(self.ytdl.process_ie_result, item, download=True))
+        return self.zulia.loop.run_in_executor(thread_pool, functools.partial(self.ytdl.process_ie_result, item, download=True))
 
     # Plays the next song in our playlist (makes it so sync -> async is possible.)
     def play(self):
