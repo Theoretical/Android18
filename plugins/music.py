@@ -248,7 +248,8 @@ class MusicPlayer:
         song = self.current_song
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=song.get('duration', 0)))
-        await self.zulia.send_message(channel, '{1}\'s song is now playing! ```{0} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url']))
+        playlist = 'side' if self.use_side_playlist else 'main'
+        await self.zulia.send_message(channel, '{1}\'s song is now playing on the {5} playlist! ```{0} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
 
     async def join_default_channel(self, member):
         if self.voice:
@@ -317,15 +318,16 @@ class MusicPlayer:
 
         queue_str = ''
 
-        playlist = self.playlist[:15] if not self.use_side_playlist else self.side_playlist[:15]
-        for song in playlist:
+        playlist = self.playlist if not self.use_side_playlist else self.side_playlist
+        for song in playlist[:15]:
             name = find(lambda m: m.mention == song['requestor'], msg_obj.server.members)
             queue_str += '%s: (%ss). requested by: %s\n' % (song['title'], str(timedelta(seconds=song['duration'])), name)
 
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=self.current_song.get('duration', 0)))
         total_len = sum([x.get('duration', 0) for x in self.playlist])
-        await self.zulia.send_message(msg_obj.channel, '```Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(str(timedelta(seconds=total_len)), len(self.playlist), position, length, queue_str))
+        current_playlist = 'Side' if self.use_side_playlist else 'Main'
+        await self.zulia.send_message(msg_obj.channel, '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, r(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
 
     async def on_play(self, msg, msg_obj):
         await self.join_default_channel(msg_obj.author)
