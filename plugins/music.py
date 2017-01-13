@@ -415,9 +415,7 @@ class MusicPlayer:
 
         channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
         print('%s | %s\n' % (member, channel))
-        self.voice = await self.zulia.join_voice_channel(channel.voice_channel)
-        self.voice_channel = channel.voice_channel
-
+        await self.zulia.join_voice_channel(channel.voice_channel)
         await self.zulia.send_message(msg_obj.channel, '`Joining channel with {}`'.format(member))
 
 
