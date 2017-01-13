@@ -295,7 +295,7 @@ class MusicPlayer:
             s['requestor'] = msg_obj.author.mention
 
         self.playlist.extend(playlist)
-        if not self.song:
+        if not self.current_song:
             self.play()
 
         await self.on_queue(msg, msg_obj)
@@ -359,7 +359,7 @@ class MusicPlayer:
 
             self.playlist.extend(playlist)
 
-        if not self.song:
+        if not self.current_song:
             self.play()
 
         if len(self.playlist) > 1:
