@@ -59,7 +59,6 @@ async def reinitialize(zulia):
 
 # These are our Spotify / Youtube helper functions.
 # I will not document how they work.
-
 async def search_youtube(title):
     print('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
     page = await get('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
@@ -159,7 +158,7 @@ class MusicPlayer:
 
 
     # Youtube helper functions.
-   def search_youtube(self, title):
+    def search_youtube(self, title):
         thread_pool = ThreadPoolExecutor(max_workers=4)
         return self.zulia.loop.run_in_executor(thread_pool, search_youtube, title)
 
