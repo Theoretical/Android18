@@ -52,7 +52,7 @@ def initialize(zulia):
 
 
 async def reinitialize(zulia):
-    for music in zulia.music:
+    for music in zulia.music.values():
         await music.quit()
 
     zulia.music = dict()
@@ -315,7 +315,7 @@ class MusicPlayer:
         queue_str = ''
 
         playlist = self.playlist[:15] if not self.use_side_playlist else self.side_playlist[:15]
-        for song in self.playlist[:15]:
+        for song in playlist:
             name = find(lambda m: m.mention == song['requestor'], msg_obj.server.members)
             queue_str += '%s: (%ss). requested by: %s\n' % (song['title'], str(timedelta(seconds=song['duration'])), name)
 
