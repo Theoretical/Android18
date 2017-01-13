@@ -329,7 +329,7 @@ class MusicPlayer:
 
         # Find a bot channel if we have one...
         if msg_obj.channel.name != 'bot':
-            channel = find(msg_obj.server.channels, name='bot')
+            channel = discord_get(msg_obj.server.channels, name='bot')
             self.channel = channel or msg_obj.channel
 
         if 'playlist' not in msg[1]:
