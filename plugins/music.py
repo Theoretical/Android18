@@ -420,6 +420,6 @@ class MusicPlayer:
 
 async def on_message(zulia, msg, msg_obj):
     if msg_obj.server not in zulia.music:
-        zulia.music[msg_obj.server] = MusicPlayer(bot, msg_obj.channel)
+        zulia.music[msg_obj.server] = MusicPlayer(zulia, msg_obj.channel)
 
     return await zulia.music[msg_obj.server].process_commands(msg, msg_obj)
