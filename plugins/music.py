@@ -252,7 +252,7 @@ class MusicPlayer:
             return
 
         default_name = 'Praying with Zulia'
-        channel = discord.utils.find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
+        channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
 
         if channel is not None:
             await self.zulia.join_voice_channel(channel.voice_channel)
@@ -406,11 +406,11 @@ class MusicPlayer:
         if self.voice:
             await self.voice.disconnect()
         if len(msg) > 1:
-            member = discord.utils.find(lambda m: m.mention == msg[1], msg_obj.server.members)
+            member = find(lambda m: m.mention == msg[1], msg_obj.server.members)
         else:
             member  = msg_obj.author
 
-        channel = discord.utils.find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
+        channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
         print('%s | %s\n' % (member, channel))
         self.voice = await self.zulia.join_voice_channel(channel.voice_channel)
         self.voice_channel = channel.voice_channel
