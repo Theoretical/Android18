@@ -316,7 +316,7 @@ class MusicPlayer:
 
         playlist = self.playlist[:15] if not self.use_side_playlist else self.side_playlist[:15]
         for song in self.playlist[:15]:
-            name = discord_get(lambda m: m.mention == song['requestor'], msg_obj.server.members)
+            name = find(lambda m: m.mention == song['requestor'], msg_obj.server.members)
             queue_str += '%s: (%ss). requested by: %s\n' % (song['title'], str(timedelta(seconds=song['duration'])), name)
 
         position = str(timedelta(seconds=self.progress))
