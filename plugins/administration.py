@@ -4,6 +4,14 @@ from sys import modules
 def initialize(bot):
     pass
 
+async def on_kiss(zulia, args, msg):
+    emoji = ':kissing_heart:'
+    user = msg.author
+    if len(args) > 1:
+        user = find(lambda m: m.mention == args[1], msg.server.members)
+
+    await zulia.send_message(msg.channe, 'Here is your kiss {} {}'.format(user.mention, emoji))
+
 async def on_clear(zulia, args, msg):
     if not msg.author.server_permissions.administrator: return
     await zulia.purge_from(msg.channel, limit=int(args[1]))
