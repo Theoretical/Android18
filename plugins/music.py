@@ -1,3 +1,6 @@
+from discord.utils import find
+from sys import modules
+
 def initialize(zulia): pass
 
 async def on_message(zulia, msg, msg_obj):
