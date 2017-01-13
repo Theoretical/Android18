@@ -201,7 +201,7 @@ class MusicPlayer:
         if not self.voice:
             # default to AFK channel..
             channel = discord_get(self.channel.server.channels, name='Praying With Zulia')
-            await self.zulia.join_voice_channel(self.voice_channel or channel)
+            await self.zulia.join_voice_channel(channel)
 
         # We do NOT want to have multiple songs attempting to play.
         with await self.music_lock:
@@ -225,6 +225,9 @@ class MusicPlayer:
             self.music_player.volume = self.volume
 
     async def quit(self):
+        self.playlist = []
+        self.playing = False
+        self.side_playlist = []
         if self.music_player:
             self.music_player.stop()
         if self.voice:
