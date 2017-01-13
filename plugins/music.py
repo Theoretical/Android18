@@ -393,9 +393,7 @@ class MusicPlayer:
     async def on_skip(self, msg, msg_obj):
         self.skip.add(msg_obj.author)
 
-        level = self.zulia.permissions.get(msg_obj.author.id)
-
-        if (self.music_player and level in ['mod', 'admin']) or self.skip.allowed:
+        if (self.music_player and msg_obj.author.server_permissions.administrator) or self.skip.allowed:
             self.music_player.stop()
             self.music_player = None
             return True
