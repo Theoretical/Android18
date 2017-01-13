@@ -149,7 +149,7 @@ class MusicPlayer:
     @property
     # Gets our current voice connection.
     def voice(self):
-        return self.zulia.voice_client_in(self.server)
+        return self.zulia.voice_client_in(self.channel.server)
 
     @property
     # Gets our current song progress.
