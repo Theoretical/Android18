@@ -249,7 +249,7 @@ class MusicPlayer:
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=song.get('duration', 0)))
         playlist = 'side' if self.use_side_playlist else 'main'
-        await self.zulia.send_message(channel, '{1}\'s song is now playing on the {5} playlist! ```{0} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
+        await self.zulia.send_message(channel, '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
 
     async def join_default_channel(self, member):
         if self.voice:
@@ -296,7 +296,7 @@ class MusicPlayer:
 
         # Step 5.) Set the owner of the song for NP.
         for s in playlist:
-            s['requestor'] = msg_obj.author.mention
+            s['requestor'] = msg_obj.author.name
 
         self.playlist.extend(playlist)
         if not self.current_song:
@@ -320,8 +320,7 @@ class MusicPlayer:
 
         playlist = self.playlist if not self.use_side_playlist else self.side_playlist
         for song in playlist[:15]:
-            name = find(lambda m: m.mention == song['requestor'], msg_obj.server.members)
-            queue_str += '%s: (%ss). requested by: %s\n' % (song['title'], str(timedelta(seconds=song['duration'])), name)
+            queue_str += '%s: (%ss). requested by: %s\n' % (song['title'], str(timedelta(seconds=song['duration'])), song['requestor'])
 
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=self.current_song.get('duration', 0)))
@@ -339,7 +338,7 @@ class MusicPlayer:
 
         if 'playlist' not in msg[1]:
             song = await self.extract_info(url=msg[1], download=True)
-            song['requestor'] = msg_obj.author.mention
+            song['requestor'] = msg_obj.author.name
 
             if msg[-1] == 'side':
                 self.side_playlist.append(song)
@@ -360,7 +359,7 @@ class MusicPlayer:
                 for i in range(0, 5):
                     shuffle(playlist)
             for song in playlist:
-                song['requestor'] = msg_obj.author.mention
+                song['requestor'] = msg_obj.author.name
 
             self.playlist.extend(playlist)
 
