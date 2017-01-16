@@ -53,16 +53,16 @@ def initialize(zulia):
 
 def get_helpstr():
     return """
-              play <link> <side|shuffle>|\tPlays the specified media link (or playlist).
-              spotify <link>            |\tPlays the specified spotify link.
-              pause                     |\tPauses the current song.
-              resume                    |\tResumes the current song.
-              queue                     |\tPosts the current song queue.
-              np                        |\tPosts current song details.
-              shuffle                   |\tShuffles the current playlist.
-              volume <size>             |\tAdjusts the current playback volume.
-              skip                      |\tStarts a skip vote (admins auto skip.)
-              summon <user>             |\tSummons Zulia to that user or the user.
+              play <link> <side|shuffle>| Plays the specified media link (or playlist).
+              spotify <link>            | Plays the specified spotify link.
+              pause                     | Pauses the current song.
+              resume                    | Resumes the current song.
+              queue                     | Posts the current song queue.
+              np                        | Posts current song details.
+              shuffle                   | Shuffles the current playlist.
+              volume <size>             | Adjusts the current playback volume.
+              skip                      | Starts a skip vote (admins auto skip.)
+              summon <user>             | Summons Zulia to that user or the user.
            """
 
 
