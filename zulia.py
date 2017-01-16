@@ -55,7 +55,8 @@ class Zulia(Client):
             help_str = ''
             for plugin in self.plugins:
                 if hasattr(plugin, 'get_helpstr'):
-                    plugin_name = str(plugin).split('.')[1].split("'")[0]
+                    plugin_name = str(plugin).split('/')[-1].split(".")[0]
+                    print(str(plugin))
                     help_str += '---------------{}---------------\n{}\n\n'.format(plugin_name, plugin.get_helpstr())
 
             await self.send_message(message.channel, '```{}```'.format(help_str))
