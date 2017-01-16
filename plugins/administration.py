@@ -4,6 +4,12 @@ from sys import modules
 def initialize(bot):
     pass
 
+def get_helpstr():
+    return """kiss  <user> \t|\tSends that user a kiss!\n
+              clear <amt>  \t|\tClears the channel of messages (admin req)\n
+              github       \t|\tPosts the github link of Zulia.\n
+              avatar <user>\t|\tPosts the user's avatar (or current user)\n
+           """
 async def on_kiss(zulia, args, msg):
     emoji = ':kissing_heart:'
     user = msg.author

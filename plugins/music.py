@@ -51,6 +51,20 @@ def initialize(zulia):
     print ('Loaded Zulia\'s music plugin.')
 
 
+def get_helpstr():
+    return """play <link> <side|shuffle>\t|\tPlays the specified media link (or playlist).\n
+              spotify <link>            \t|\tPlays the specified spotify link.\n
+              pause                     \t|\tPauses the current song.\n
+              resume                    \t|\tResumes the current song.\n
+              queue                     \t|\tPosts the current song queue.\n
+              np                        \t|\tPosts current song details.\n
+              shuffle                   \t|\tShuffles the current playlist.\n
+              volume <size>             \t|\tAdjusts the current playback volume.\n
+              skip                      \t|\tStarts a skip vote (admins auto skip.)\n
+              summon <user>             \t|\tSummons Zulia to that user or the user who sent the message.\n
+           """
+
+
 async def reinitialize(zulia):
     for music in zulia.music.values():
         await music.quit()

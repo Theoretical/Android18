@@ -50,7 +50,18 @@ class Zulia(Client):
             if should_remove: delete_message = True
 
         # This is a Zulia only plugin used to reload all of our plugins during runtime.
-        if message_args[0] == 'reload':
+        if message_args[0] == 'help':
+            should_remove = True
+            help_str = ''
+            for plugin in self.plugins:
+                if hasattr(plugin, 'get_helpstr'):
+                    plugin_name = str(plugin).split('.')[1]
+                    help_str += '----------{}----------\n{}\n\n'.format(plugin_name, plugin.get_helpstr())
+
+            await self.send_message(message.channel, '```{}```'.format(help_str))
+
+
+        elif message_args[0] == 'reload':
             if not message.author.server_permissions.administrator:
                 await self.delete_message(message)
                 return
