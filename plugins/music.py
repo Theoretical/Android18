@@ -52,7 +52,8 @@ def initialize(zulia):
 
 
 def get_helpstr():
-    return """play <link> <side|shuffle>|\tPlays the specified media link (or playlist).
+    return """
+              play <link> <side|shuffle>|\tPlays the specified media link (or playlist).
               spotify <link>            |\tPlays the specified spotify link.
               pause                     |\tPauses the current song.
               resume                    |\tResumes the current song.
