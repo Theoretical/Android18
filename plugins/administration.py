@@ -5,10 +5,10 @@ def initialize(bot):
     pass
 
 def get_helpstr():
-    return """kiss  <user> \t|\tSends that user a kiss!\n
-              clear <amt>  \t|\tClears the channel of messages (admin req)\n
-              github       \t|\tPosts the github link of Zulia.\n
-              avatar <user>\t|\tPosts the user's avatar (or current user)\n
+    return """kiss  <user> |\tSends that user a kiss!\n
+              clear <amt>  |\tClears the channel of messages (admin req)\n
+              github       |\tPosts the github link of Zulia.\n
+              avatar <user>|\tPosts the user's avatar (or current user)\n
            """
 async def on_kiss(zulia, args, msg):
     emoji = ':kissing_heart:'
