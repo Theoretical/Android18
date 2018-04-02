@@ -1,4 +1,5 @@
 from aiohttp import get
+from configparser import ConfigParser
 from discord import Client, opus, enums
 from discord.utils import get
 from importlib import import_module, reload
@@ -17,6 +18,9 @@ class Zulia(Client):
 
         self.command_prefix = command_prefix
         self.plugins = []
+
+        self.config = ConfigParser()
+        self.config.read('zulia.ini')
 
         # Load all of our bot extensions.
         self._load_plugins()
@@ -90,7 +94,7 @@ async def on_ready():
         main_channel = get(server.channels, type=enums.ChannelType.text, position=0)
 
         fmt_msg = '`Hello members of {name}! I\'m {bot}! I will be here to assist you in any way that I can!`'
-        await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
+#        await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
 
 # TODO: Add a config file.
-zulia.run(environ.get('DISCORD_TOKEN'))
+zulia.run(zulia.config['Discord']['Auth'])
