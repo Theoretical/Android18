@@ -53,7 +53,7 @@ class Zulia(Client):
 
             if should_remove: delete_message = True
 
-        # This is a Zulia only plugin used to reload all of our plugins during runtime.
+        # This is a Zulia only plugin used to call our help functions for each plugin.
         if message_args[0] == 'help':
             should_remove = True
             help_str = ''
@@ -66,6 +66,7 @@ class Zulia(Client):
             await self.send_message(message.channel, '```{}```'.format(help_str))
 
 
+        # This is a Zulia only plugin used to reload all of our plugins during runtime.
         elif message_args[0] == 'reload':
             if not message.author.server_permissions.administrator:
                 await self.delete_message(message)
