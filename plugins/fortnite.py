@@ -47,18 +47,21 @@ async def login(zulia):
 
     token_res = await post(token_url, headers={'Authorization': 'basic ' + client}, data=token_data)
     token_data = await token_res.json()
-
+    print(token_data)
     return token_data['expires_at'], token_data['access_token'], token_data['refresh_token']
 
 
 async def call_fortnite(url, data=None):
     global token
+    print('Token: %s | URL: %s' % (token, url))
+
     res = await get(url, headers={'Authorization': 'bearer ' + token}, data=data)
     return await res.json()
 
 async def get_user(username):
     lookup_url = 'https://persona-public-service-prod06.ol.epicgames.com/persona/api/public/account/lookup?q={user}'
     res = await call_fortnite(lookup_url.format(user=username))
+    print (res)
     return res.get('id')
 
 async def get_stats(id):
@@ -67,14 +70,38 @@ async def get_stats(id):
     return stats
 
 
+def convert_stats(stat_data):
+    # Only do PC for now.
+    solo = {}
+    duo = {}
+    squad = {}
+
+    for obj in stat_data:
+        stat = obj['name']
+        value = obj['value']
+
+        args = stat.split('_')
+        stat = args[1]
+        platform = args[2]
+        mode = args[-1]
+
+        if platform != 'pc': continue
+        if stat == 'placetop1': stat = 'wins'
+
+        if mode == 'p2': solo[stat] = value
+        elif mode == 'p10': duo[stat] = value
+        else: squad[stat] = value
+
+    return solo, duo, squad
+
+
+
 async def on_fn(zulia, args, msg):
     user_id = await get_user(args[1])
     stats = await get_stats(user_id)
-    
-    from json import dumps
-    print(dumps(stats, indent=4))
+    solo, duo, squad = convert_stats(stats)
 
-    await zulia.send_message(msg.channel, '```{}```'.format(stats))
+    await zulia.send_message(msg.channel, '```{}```'.format(solo))
 
 
 def initialize(bot):
