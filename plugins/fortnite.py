@@ -35,7 +35,6 @@ async def login(zulia):
     exchange = await get(exchange_url, headers={'Authorization': 'bearer ' + refresh_token})
     exchange_data = await exchange.json()
 
-    print(exchange_data)
     code = exchange_data['code']
 
     token_data = {
@@ -47,13 +46,11 @@ async def login(zulia):
 
     token_res = await post(token_url, headers={'Authorization': 'basic ' + client}, data=token_data)
     token_data = await token_res.json()
-    print(token_data)
     return token_data['expires_at'], token_data['access_token'], token_data['refresh_token']
 
 
 async def call_fortnite(url, data=None):
     global token
-    print('Token: %s | URL: %s' % (token, url))
 
     res = await get(url, headers={'Authorization': 'bearer ' + token}, data=data)
     return await res.json()
