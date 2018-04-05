@@ -10,6 +10,7 @@ zulia = None
 token = None
 expires_at = None
 refresh_token = None
+tracker_key = None
 
 async def login(zulia):
     user = zulia.config['Fortnite']['Username']
@@ -97,30 +98,46 @@ def convert_stats(stat_data):
     squad['kd'] = '%.2f' % (squad['kills'] / (squad['matchesplayed'] - squad['wins']))
     return solo, duo, squad
 
+async def get_tracker(user):
+    global tracker_key
+    page = await get('https://api.fortnitetracker.com/v1/profile/pc/' + user, headers={'TRN-Api-Key': tracker_key})
+    return await page.json()
+
 
 
 async def on_fn(zulia, args, msg):
     user_id = await get_user(args[1])
     stats = await get_stats(user_id)
     solo, duo, squad = convert_stats(stats)
+    tracker = await get_tracker(args[1])
+    t_stats = tracker['stats']
+    #u'p2', u'p9', u'p10'
 
     table = [
         ['Stat', 'Solo', 'Duo', 'Squad'],
+        ['TRN ELO', t_stats['p2']['trnRating']['value'], t_stats['p10']['trnRating']['value'], t_stats['p9']['trnRating']['value']],
+        ['TRN Percentile', t_stats['p2']['trnRating']['percentile'], t_stats['p10']['trnRating']['percentile'], t_stats['p9']['trnRating']['percentile']],
         ['Wins', solo['wins'], duo['wins'], squad['wins']],
         ['KD', solo['kd'], duo['kd'], squad['kd']],
         ['Kills', solo['kills'], duo['kills'], squad['kills']],
         ['Matches', solo['matchesplayed'], duo['matchesplayed'], squad['matchesplayed']]
     ]
 
-    await zulia.send_message(msg.channel, '```{}```'.format(AsciiTable(table).table))
+    for n, match in enumerate(tracker['recentMatches'][:5]):
+        table.append(
+        ['Match %s' % (n+1), '%s kills' % match['kills'], '%s wins' % match['top1']])
+
+    await zulia.send_message(msg.channel, '```User: {}\n{}```'.format(args[1].title(), AsciiTable(table).table))
 
 
 def initialize(bot):
     pass
 
 async def initialize_async(bot):
-    global zulia, token, expires_at, refresh_token
+    global zulia, token, expires_at, refresh_token, tracker_key
     zulia = bot
+
+    tracker_key = zulia.config['Fortnite']['Key']
     print('Logging in to fortnite!')
     expires_at, token, refresh_token = await login(zulia)
 
