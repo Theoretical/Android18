@@ -2,6 +2,8 @@ from discord.utils import find
 from sys import modules
 from aiohttp import get, post
 from lxml.html import fromstring
+from terminaltables import AsciiTable
+
 
 # zulia instance..
 zulia = None
@@ -69,9 +71,9 @@ async def get_stats(id):
 
 def convert_stats(stat_data):
     # Only do PC for now.
-    solo = {}
-    duo = {}
-    squad = {}
+    solo = {'wins': 0}
+    duo = {'wins': 0}
+    squad = {'wins': 0}
 
     for obj in stat_data:
         stat = obj['name']
@@ -89,6 +91,10 @@ def convert_stats(stat_data):
         elif mode == 'p10': duo[stat] = value
         else: squad[stat] = value
 
+    
+    solo['kd'] = '%.2f' % (solo['kills'] / (solo['matchesplayed'] - solo['wins']))
+    duo['kd'] = '%.2f' % (duo['kills'] / (duo['matchesplayed'] - duo['wins']))
+    squad['kd'] = '%.2f' % (squad['kills'] / (squad['matchesplayed'] - squad['wins']))
     return solo, duo, squad
 
 
@@ -98,7 +104,15 @@ async def on_fn(zulia, args, msg):
     stats = await get_stats(user_id)
     solo, duo, squad = convert_stats(stats)
 
-    await zulia.send_message(msg.channel, '```{}```'.format(solo))
+    table = [
+        ['Stat', 'Solo', 'Duo', 'Squad'],
+        ['Wins', solo['wins'], duo['wins'], squad['wins']],
+        ['KD', solo['kd'], duo['kd'], squad['kd']],
+        ['Kills', solo['kills'], duo['kills'], squad['kills']],
+        ['Matches', solo['matchesplayed'], duo['matchesplayed'], squad['matchesplayed']]
+    ]
+
+    await zulia.send_message(msg.channel, '```{}```'.format(AsciiTable(table).table))
 
 
 def initialize(bot):
