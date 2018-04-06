@@ -3,7 +3,7 @@ from sys import modules
 from aiohttp import get, post
 from lxml.html import fromstring
 from terminaltables import AsciiTable
-
+from urllib.parse import quote
 
 # zulia instance..
 zulia = None
@@ -75,6 +75,7 @@ def convert_stats(stat_data):
     solo = {'wins': 0}
     duo = {'wins': 0}
     squad = {'wins': 0}
+    overall = {'wins': 0}
 
     for obj in stat_data:
         stat = obj['name']
@@ -93,10 +94,15 @@ def convert_stats(stat_data):
         else: squad[stat] = value
 
     
+    for k,v in solo.items():
+        overall[k] = (solo.get(k, 0) + duo.get(k, 0) + squad.get(k, 0))
+
     solo['kd'] = '%.2f' % (solo['kills'] / (solo['matchesplayed'] - solo['wins']))
     duo['kd'] = '%.2f' % (duo['kills'] / (duo['matchesplayed'] - duo['wins']))
     squad['kd'] = '%.2f' % (squad['kills'] / (squad['matchesplayed'] - squad['wins']))
-    return solo, duo, squad
+    overall['kd'] = '%.2f' % (overall['kills'] / (overall['matchesplayed'] - overall['wins']))
+
+    return solo, duo, squad, overall
 
 async def get_tracker(user):
     global tracker_key
@@ -106,28 +112,34 @@ async def get_tracker(user):
 
 
 async def on_fn(zulia, args, msg):
-    user_id = await get_user(args[1])
+    user = ' '.join(args[1:])
+    user_id = await get_user(quote(user))
+
+    if not user_id or 'errorMessage' in user_id: 
+        await zulia.send_message(msg.channel, 'User not found! :(')
+        return
+
     stats = await get_stats(user_id)
-    solo, duo, squad = convert_stats(stats)
-    tracker = await get_tracker(args[1])
+    solo, duo, squad, overall = convert_stats(stats)
+    tracker = await get_tracker(quote(user))
     t_stats = tracker['stats']
     #u'p2', u'p9', u'p10'
 
     table = [
-        ['Stat', 'Solo', 'Duo', 'Squad'],
-        ['TRN ELO', t_stats['p2']['trnRating']['value'], t_stats['p10']['trnRating']['value'], t_stats['p9']['trnRating']['value']],
-        ['TRN Percentile', t_stats['p2']['trnRating']['percentile'], t_stats['p10']['trnRating']['percentile'], t_stats['p9']['trnRating']['percentile']],
-        ['Wins', solo['wins'], duo['wins'], squad['wins']],
-        ['KD', solo['kd'], duo['kd'], squad['kd']],
-        ['Kills', solo['kills'], duo['kills'], squad['kills']],
-        ['Matches', solo['matchesplayed'], duo['matchesplayed'], squad['matchesplayed']]
+        ['Stat', 'Solo', 'Duo', 'Squad', 'Overall'],
+        ['TRN ELO', t_stats['p2']['trnRating']['value'], t_stats['p10']['trnRating']['value'], t_stats['p9']['trnRating']['value'], '--'],
+        ['TRN Percentile', t_stats['p2']['trnRating']['percentile'], t_stats['p10']['trnRating']['percentile'], t_stats['p9']['trnRating']['percentile'], '--'],
+        ['Wins', solo['wins'], duo['wins'], squad['wins'], overall['wins']],
+        ['KD', solo['kd'], duo['kd'], squad['kd'], overall['kd']],
+        ['Kills', solo['kills'], duo['kills'], squad['kills'], overall['kills']],
+        ['Matches', solo['matchesplayed'], duo['matchesplayed'], squad['matchesplayed'], overall['matchesplayed']]
     ]
 
     for n, match in enumerate(tracker['recentMatches'][:5]):
         table.append(
         ['Match %s' % (n+1), '%s kills' % match['kills'], '%s wins' % match['top1']])
 
-    await zulia.send_message(msg.channel, '```User: {}\n{}```'.format(args[1].title(), AsciiTable(table).table))
+    await zulia.send_message(msg.channel, '```User: {}\n{}```'.format(user, AsciiTable(table).table))
 
 
 def initialize(bot):
