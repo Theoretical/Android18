@@ -78,9 +78,12 @@ def download_beatmap(obj):
     session = obj['session']
     url = obj['url']
 
+    if '#' in url:
+        url = url.split('#')[0]
+    
     download_url = url + '/download'
     path = '/tmp/'
-
+    
     beatmap_id = url.split('/')[-1]
     filename = beatmap_id + '.zip'
     req = session.get(download_url, stream=True)
