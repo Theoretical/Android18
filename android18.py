@@ -10,8 +10,8 @@ import asyncio
 opus.load_opus('/usr/lib/x86_64-linux-gnu/libopus.so.0')
 
 
-# Wrap Zulia around a normal Discord client, we're going to extend it on our own.
-class Zulia(Client):
+# Wrap Android18 around a normal Discord client, we're going to extend it on our own.
+class Android18(Client):
     def __init__(self, command_prefix):
         # Init the normal discord client.
         Client.__init__(self)
@@ -20,7 +20,7 @@ class Zulia(Client):
         self.plugins = []
 
         self.config = ConfigParser()
-        self.config.read('zulia.ini')
+        self.config.read('config.ini')
 
         # Load all of our bot extensions.
         self._load_plugins()
@@ -53,7 +53,7 @@ class Zulia(Client):
 
             if should_remove: delete_message = True
 
-        # This is a Zulia only plugin used to call our help functions for each plugin.
+        # This is an Android18 only plugin used to call our help functions for each plugin.
         if message_args[0] == 'help':
             should_remove = True
             help_str = ''
@@ -66,7 +66,7 @@ class Zulia(Client):
             await self.send_message(message.channel, '```{}```'.format(help_str))
 
 
-        # This is a Zulia only plugin used to reload all of our plugins during runtime.
+        # This is an Android18 only plugin used to reload all of our plugins during runtime.
         elif message_args[0] == 'reload':
             if not message.author.server_permissions.administrator:
                 await self.delete_message(message)
@@ -85,17 +85,17 @@ class Zulia(Client):
 
         if delete_message: await self.delete_message(message)
 
-zulia = Zulia('.')
+android18 = Android18('.')
 
-@zulia.event
+@android18.event
 async def on_ready():
-    servers = zulia.servers
+    servers = android18.servers
 
     for server in servers:
         main_channel = get(server.channels, type=enums.ChannelType.text, position=0)
 
         fmt_msg = '`Hello members of {name}! I\'m {bot}! I will be here to assist you in any way that I can!`'
-#        await zulia.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
+#        await android18.send_message(main_channel, fmt_msg.format(name=server.name, bot=zulia.user.name))
 
 # TODO: Add a config file.
-zulia.run(zulia.config['Discord']['Auth'])
+android18.run(android18.config['Discord']['Auth'])

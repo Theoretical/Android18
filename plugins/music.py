@@ -45,10 +45,10 @@ ytdl_format_options = {
 }
 
 
-def initialize(zulia):
-    # Each server Zulia supports should be allowed to have their own music bot.
-    zulia.music = dict()
-    print ('Loaded Zulia\'s music plugin.')
+def initialize(android18):
+    # Each server android18 supports should be allowed to have their own music bot.
+    android18.music = dict()
+    print ('Loaded android18\'s music plugin.')
 
 
 def get_helpstr():
@@ -62,15 +62,15 @@ def get_helpstr():
               shuffle                   | Shuffles the current playlist.
               volume <size>             | Adjusts the current playback volume.
               skip                      | Starts a skip vote (admins auto skip.)
-              summon <user>             | Summons Zulia to that user or the user.
+              summon <user>             | Summons android18 to that user or the user.
            """
 
 
-async def reinitialize(zulia):
-    for music in zulia.music.values():
+async def reinitialize(android18):
+    for music in android18.music.values():
         await music.quit()
 
-    zulia.music = dict()
+    android18.music = dict()
 
 # These are our Spotify / Youtube helper functions.
 # I will not document how they work.
@@ -144,8 +144,8 @@ async def get_spotify_playlist(url):
 
 
 class MusicPlayer:
-    def __init__(self, zulia, channel):
-        self.zulia = zulia
+    def __init__(self, android18, channel):
+        self.android18 = android18
         self.channel = channel
         self.playlist = list()
         self.music_lock = Lock()
@@ -164,7 +164,7 @@ class MusicPlayer:
     @property
     # Gets our current voice connection.
     def voice(self):
-        return self.zulia.voice_client_in(self.channel.server)
+        return self.android18.voice_client_in(self.channel.server)
 
     @property
     # Gets our current song progress.
@@ -175,19 +175,19 @@ class MusicPlayer:
     # Youtube helper functions.
     def search_youtube(self, title):
         thread_pool = ThreadPoolExecutor(max_workers=4)
-        return self.zulia.loop.run_in_executor(thread_pool, search_youtube, title)
+        return self.android18.loop.run_in_executor(thread_pool, search_youtube, title)
 
     def extract_info(self, *args, **kwargs):
         thread_pool = ThreadPoolExecutor(max_workers=2)
-        return self.zulia.loop.run_in_executor(thread_pool, functools.partial(self.ytdl.extract_info, *args, **kwargs))
+        return self.android18.loop.run_in_executor(thread_pool, functools.partial(self.ytdl.extract_info, *args, **kwargs))
 
     def process_info(self, item):
         thread_pool = ThreadPoolExecutor(max_workers=2)
-        return self.zulia.loop.run_in_executor(thread_pool, functools.partial(self.ytdl.process_ie_result, item, download=True))
+        return self.android18.loop.run_in_executor(thread_pool, functools.partial(self.ytdl.process_ie_result, item, download=True))
 
     # Plays the next song in our playlist (makes it so sync -> async is possible.)
     def play(self):
-        self.zulia.loop.create_task(self.play_song())
+        self.android18.loop.create_task(self.play_song())
 
     # Our callback for when a song finishes.
     def on_finished(self):
@@ -215,8 +215,8 @@ class MusicPlayer:
         # if for some reason we're not connected, join our default channel (why networking why?!)
         if not self.voice:
             # default to AFK channel..
-            channel = discord_get(self.channel.server.channels, name='Praying With Zulia')
-            await self.zulia.join_voice_channel(channel)
+            channel = discord_get(self.channel.server.channels, name='Praying With android18')
+            await self.android18.join_voice_channel(channel)
 
         # We do NOT want to have multiple songs attempting to play.
         with await self.music_lock:
@@ -233,7 +233,7 @@ class MusicPlayer:
             # Create our music player and send our info to the channel.
             self.music_player = self.voice.create_ffmpeg_player('/tmp/' + self.current_song['id'], use_avconv=True)
             self.music_player.loops = 0 #???
-            self.music_player.after = lambda: self.zulia.loop.call_soon_threadsafe(self.on_finished)
+            self.music_player.after = lambda: self.android18.loop.call_soon_threadsafe(self.on_finished)
             await self.send_np(self.channel)
 
             self.music_player.start()
@@ -264,21 +264,21 @@ class MusicPlayer:
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=song.get('duration', 0)))
         playlist = 'side' if self.use_side_playlist else 'main'
-        await self.zulia.send_message(channel, '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
+        await self.android18.send_message(channel, '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
 
     async def join_default_channel(self, member):
         if self.voice:
             return
 
-        default_name = 'Praying with Zulia'
+        default_name = 'Praying with android18'
         channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
 
         if channel is not None:
-            await self.zulia.join_voice_channel(channel.voice_channel)
+            await self.android18.join_voice_channel(channel.voice_channel)
             return
 
         channel = discord_get(member.server.channels, name=default_name)
-        await self.zulia.join_voice_channel(channel)
+        await self.android18.join_voice_channel(channel)
 
 
     async def on_spotify(self, msg, msg_obj):
@@ -296,7 +296,7 @@ class MusicPlayer:
         # Step 3.) Assume my searching isn't ass.
         ended = time()
         total_songs = len(songs)
-        await self.zulia.send_message(msg_obj.channel, '`Found: %s songs in playlist: %s by %s in %s seconds.!`' % (total_songs, playlist, user, ended - t))
+        await self.android18.send_message(msg_obj.channel, '`Found: %s songs in playlist: %s by %s in %s seconds.!`' % (total_songs, playlist, user, ended - t))
         await self.join_default_channel(msg_obj.author)
 
         # Find a bot channel if we have one...
@@ -341,7 +341,7 @@ class MusicPlayer:
         length = str(timedelta(seconds=self.current_song.get('duration', 0)))
         total_len = sum([x.get('duration', 0) for x in self.playlist])
         current_playlist = 'Side' if self.use_side_playlist else 'Main'
-        await self.zulia.send_message(msg_obj.channel, '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, str(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
+        await self.android18.send_message(msg_obj.channel, '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, str(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
 
     async def on_play(self, msg, msg_obj):
         await self.join_default_channel(msg_obj.author)
@@ -369,7 +369,7 @@ class MusicPlayer:
             playlist = [x for x in playlist if x]
 
             end = time()
-            await self.zulia.send_message(msg_obj.channel, '```Loaded: %s songs in %s seconds.```' % (len(playlist), end - t))
+            await self.android18.send_message(msg_obj.channel, '```Loaded: %s songs in %s seconds.```' % (len(playlist), end - t))
             if msg[-1] == 'shuffle':
                 for i in range(0, 5):
                     shuffle(playlist)
@@ -399,7 +399,7 @@ class MusicPlayer:
     async def on_volume(self, msg, msg_obj):
 
         if len(msg) == 1:
-            await self.zulia.send_message(msg_obj.channel, '`Current Volume: %s`' % self.volume)
+            await self.android18.send_message(msg_obj.channel, '`Current Volume: %s`' % self.volume)
         else:
             if not str.isdigit(msg[1]): return
             self.volume = int(msg[1]) / 100
@@ -407,7 +407,7 @@ class MusicPlayer:
             if self.music_player:
                 self.music_player.volume = self.volume
 
-            await self.zulia.send_message(msg_obj.channel, '`{} set the volume to {}`'.format(msg_obj.author, self.volume))
+            await self.android18.send_message(msg_obj.channel, '`{} set the volume to {}`'.format(msg_obj.author, self.volume))
 
     async def on_skip(self, msg, msg_obj):
         self.skip.add(msg_obj.author)
@@ -417,7 +417,7 @@ class MusicPlayer:
             self.music_player = None
             return True
 
-        await self.zulia.send_message(msg_obj.channel, '`{} Started a skip request! Need 1 more person to request a skip to continue!`'.format(msg_obj.author))
+        await self.android18.send_message(msg_obj.channel, '`{} Started a skip request! Need 1 more person to request a skip to continue!`'.format(msg_obj.author))
 
     async def on_summon(self, msg, msg_obj):
         if self.voice:
@@ -428,12 +428,12 @@ class MusicPlayer:
             member  = msg_obj.author
 
         channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
-        await self.zulia.join_voice_channel(channel.voice_channel)
-        await self.zulia.send_message(msg_obj.channel, '`Joining channel with {}`'.format(member))
+        await self.android18.join_voice_channel(channel.voice_channel)
+        await self.android18.send_message(msg_obj.channel, '`Joining channel with {}`'.format(member))
 
 
-async def on_message(zulia, msg, msg_obj):
-    if msg_obj.server not in zulia.music:
-        zulia.music[msg_obj.server] = MusicPlayer(zulia, msg_obj.channel)
+async def on_message(android18, msg, msg_obj):
+    if msg_obj.server not in android18.music:
+        android18.music[msg_obj.server] = MusicPlayer(android18, msg_obj.channel)
 
-    return await zulia.music[msg_obj.server].process_commands(msg, msg_obj)
+    return await android18.music[msg_obj.server].process_commands(msg, msg_obj)

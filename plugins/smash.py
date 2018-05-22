@@ -9,7 +9,7 @@ def get_helpstr():
               smash <player> | Pulls up that player's info (ALPHA!)!
            """
 
-async def on_smash(zulia, args, msg):
+async def on_smash(android18, args, msg):
     user = msg.author
     CURRENT_TOURNAMENTS = [
         'https://smash.gg/tournament/dreamhack-atlanta-2017/events/super-smash-bros-for-wii-u/overview',
@@ -95,12 +95,12 @@ async def on_smash(zulia, args, msg):
     lose_count = sum(losses.values())
 
     rival = max(losses, key=losses.get)
-    await zulia.send_message(msg.channel, '```{} has a w/l of: {}/{}\nTheir rival is: {} having {} wins over them!```'.format(real_player_name, win_count, lose_count, rival, losses[rival]))
+    await android18.send_message(msg.channel, '```{} has a w/l of: {}/{}\nTheir rival is: {} having {} wins over them!```'.format(real_player_name, win_count, lose_count, rival, losses[rival]))
 
-async def on_message(zulia, msg, msg_obj):
+async def on_message(android18, msg, msg_obj):
     callback_func = 'on_' + msg[0]
 
     if hasattr(modules[__name__], callback_func):
-        await getattr(modules[__name__], callback_func)(zulia, msg, msg_obj)
+        await getattr(modules[__name__], callback_func)(android18, msg, msg_obj)
         return True
     return False

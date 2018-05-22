@@ -5,18 +5,18 @@ from lxml.html import fromstring
 from terminaltables import AsciiTable
 from urllib.parse import quote
 
-# zulia instance..
-zulia = None
+# android18 instance..
+android18 = None
 token = None
 expires_at = None
 refresh_token = None
 tracker_key = None
 
-async def login(zulia):
-    user = zulia.config['Fortnite']['Username']
-    password = zulia.config['Fortnite']['Password']
-    launcher = zulia.config['Fortnite']['Launcher']
-    client = zulia.config['Fortnite']['Client']
+async def login(android18):
+    user = android18.config['Fortnite']['Username']
+    password = android18.config['Fortnite']['Password']
+    launcher = android18.config['Fortnite']['Launcher']
+    client = android18.config['Fortnite']['Client']
 
     # OAuth takes 3 steps.
     
@@ -111,12 +111,12 @@ async def get_tracker(user):
 
 
 
-async def on_fn(zulia, args, msg):
+async def on_fn(android18, args, msg):
     user = ' '.join(args[1:])
     user_id = await get_user(quote(user))
 
     if not user_id or 'errorMessage' in user_id: 
-        await zulia.send_message(msg.channel, 'User not found! :(')
+        await android18.send_message(msg.channel, 'User not found! :(')
         return
 
     stats = await get_stats(user_id)
@@ -139,24 +139,24 @@ async def on_fn(zulia, args, msg):
         table.append(
         ['Match %s' % (n+1), '%s kills' % match['kills'], '%s wins' % match['top1']])
 
-    await zulia.send_message(msg.channel, '```User: {}\n{}```'.format(user, AsciiTable(table).table))
+    await android18.send_message(msg.channel, '```User: {}\n{}```'.format(user, AsciiTable(table).table))
 
 
 def initialize(bot):
     pass
 
 async def initialize_async(bot):
-    global zulia, token, expires_at, refresh_token, tracker_key
-    zulia = bot
+    global android18, token, expires_at, refresh_token, tracker_key
+    android18 = bot
 
-    tracker_key = zulia.config['Fortnite']['Key']
+    tracker_key = android18.config['Fortnite']['Key']
     print('Logging in to fortnite!')
-    expires_at, token, refresh_token = await login(zulia)
+    expires_at, token, refresh_token = await login(android18)
 
-async def on_message(zulia, msg, msg_obj):
+async def on_message(android18, msg, msg_obj):
     callback_func = 'on_' + msg[0]
 
     if hasattr(modules[__name__], callback_func):
-        await getattr(modules[__name__], callback_func)(zulia, msg, msg_obj)
+        await getattr(modules[__name__], callback_func)(android18, msg, msg_obj)
         return True
     return False

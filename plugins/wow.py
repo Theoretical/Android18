@@ -4,7 +4,7 @@ from sys import modules
 from json import loads
 from subprocess import check_output
 
-def initialize(zulia):
+def initialize(android18):
     pass
 
 def get_helpstr():
@@ -14,7 +14,7 @@ def get_helpstr():
            """
 
 
-async def on_emissary(zulia, args, msg):
+async def on_emissary(android18, args, msg):
     page = await get('http://www.wowhead.com/world-quests/na')
     content = await page.text()
     nodes = fromstring(content)
@@ -25,10 +25,10 @@ async def on_emissary(zulia, args, msg):
         length = n.getnext().text
         out_msg += '%25s\t|\tExpires in: %25s\n' % (faction, length)
 
-    await zulia.send_message(msg.channel, '```{}```'.format(out_msg))
+    await android18.send_message(msg.channel, '```{}```'.format(out_msg))
 
 
-async def on_wq(zulia, msg, msg_obj):
+async def on_wq(android18, msg, msg_obj):
     zone = ' '.join(msg[1:]).lower()
 
     output = check_output(["casperjs", "wowhead.js"])
@@ -50,16 +50,16 @@ async def on_wq(zulia, msg, msg_obj):
 
         # TODO: time...?
         out_msg += '%30s|%30s|%30s' % (quest_name, faction, '|'.join(items))
-    await zulia.send_message(msg.channel, '```{}```'.format(out_msg))
+    await android18.send_message(msg.channel, '```{}```'.format(out_msg))
 
 
 
 
 
-async def on_message(zulia, msg, msg_obj):
+async def on_message(android18, msg, msg_obj):
     callback_func = 'on_' + msg[0]
 
     if hasattr(modules[__name__], callback_func):
-        await getattr(modules[__name__], callback_func)(zulia, msg, msg_obj)
+        await getattr(modules[__name__], callback_func)(android18, msg, msg_obj)
         return True
     return False
