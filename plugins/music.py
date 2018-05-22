@@ -99,10 +99,11 @@ def download_beatmap(obj):
     with ZipFile(path + filename, "r") as z:
         z.extractall('/tmp/' + beatmap_id + 'z')
 
+    zip_path = '/tmp/%sz' % beatmap_id
     # we don't know the actual file name lol.
-    for name in listdir('/tmp/' + beatmap_id + 'z'):
+    for name in listdir(zip_path):
         if '.mp3' in name or '.ogg' in name:
-            rename(name, '/tmp/' + beatmap_id)
+            rename('%s/%s' % (zip_path,name), '/tmp/' + beatmap_id)
     
     rmtree('/tmp/' + beatmap_id + 'z')
     return beatmap_id
