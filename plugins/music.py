@@ -3,7 +3,7 @@ from asyncio import Lock, gather
 from datetime import timedelta
 from discord.utils import find, get as discord_get
 from lxml.html import fromstring
-from os import listdir, unlink, environ
+from os import listdir, unlink, environ, rename
 from os.path import isfile
 from random import shuffle
 from spotipy import Spotify
@@ -13,6 +13,9 @@ from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 import functools
 import youtube_dl
+from requests import Session
+from zipfile import ZipFile
+from shutil import rmtree
 
 # We still will allow only skipping by 2 people unless the user has `admin`
 class Skip:
@@ -44,10 +47,68 @@ ytdl_format_options = {
     'source_address': '0.0.0.0'
 }
 
+def login_to_osu(android18):
+    # for now hardcode this.
+    username = android18.config['osu']['username']
+    password = android18.config['osu']['password']
+    headers = {
+        "Accept" : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Encoding" : "gzip, deflate, sdch",
+        "Accept-Language" : "en-US,en;q=0.8,pt;q=0.6",
+        "Cache-Control" : "max-age=0",
+        "Connection" : "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.81 Safari/537.36"
+    }
+    # request a defualt page.
+    session = Session()
+    session.headers.update(headers)
+    session.allow_redirects = True
+    initial_res = session.get('https://osu.ppy.sh/beatmapsets/444079/')
+    nodes = fromstring(initial_res.content)
+    token = nodes.xpath('//meta[@name="csrf-token"]')[0].get('content')
+    login_res = session.post('https://osu.ppy.sh/session', {
+        'username': username,
+        'password': password,
+        '_token': token
+    })
+    return session
+    
+def download_beatmap(obj):
+    session = obj['sesssion']
+    url = ob['url']
+
+    download_url = url + '/download'
+    path = '/tmp/'
+
+    beatmap_id = url.split('/')[-1]
+    filename = beatmap_id + '.zip'
+    req = session.get(download_url, stream=True)
+
+    with open(path + filename, 'w') as f:
+        for chunk in req.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+                f.flush()
+    
+    req.close()
+
+    with ZipFile(path+file_name, "r") as z:
+        z.extractall('/tmp/' + beatmap_id + 'z')
+
+    # we don't know the actual file name lol.
+    for name in listdir('/tmp/' + beatmap_id + 'z'):
+        if '.mp3' in name or '.ogg' in name:
+            os.rename(name, '/tmp/' + beatmap_id)
+    
+    rmtree('/tmp/' + beatmap_id + 'z')
+    return beatmap_id
+
 
 def initialize(android18):
     # Each server android18 supports should be allowed to have their own music bot.
     android18.music = dict()
+    android18.osu = login_to_osu(android18)
     print ('Loaded android18\'s music plugin.')
 
 
@@ -71,6 +132,25 @@ async def reinitialize(android18):
         await music.quit()
 
     android18.music = dict()
+
+async def get_beatmap_info(url):
+    from json import loads
+    page = await get(url)
+    content = await page.text()
+
+    nodes = fromstring(content)
+    json_data = nodes.xpath('//script[@id="json-beatmapset"]')[0].text
+
+    data = loads(json_data)
+    obj = {
+        'title': data['title'],
+        'artist': data['artist'],
+        'duration': max([_['total_length'] for _ in data['beatmaps']]),
+        'webpage_url': url
+    }
+
+    return obj
+
 
 # These are our Spotify / Youtube helper functions.
 # I will not document how they work.
@@ -171,6 +251,11 @@ class MusicPlayer:
     def progress(self):
         return round(self.music_player.loops * 0.02) if self.music_player else 0
 
+
+    # Download osu file.
+    def download_beatmap(self, url):
+        thread_pool = ThreadPoolExecutor(max_workers=2)
+        return self.android18.loop.run_in_executor(thread_pool, download_beatmap, {'url': url, 'session': self.android18.osu})
 
     # Youtube helper functions.
     def search_youtube(self, title):
@@ -378,6 +463,7 @@ class MusicPlayer:
 
             self.playlist.extend(playlist)
 
+    
         if not self.current_song:
             self.play()
 
@@ -430,6 +516,25 @@ class MusicPlayer:
         channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
         await self.android18.join_voice_channel(channel.voice_channel)
         await self.android18.send_message(msg_obj.channel, '`Joining channel with {}`'.format(member))
+
+    async def on_osu(self, msg, msg_obj):
+        await self.join_default_channel(msg_obj.author)
+
+        url = msg[1]
+        current_song = await get_beatmap_info(url)
+        current_song['requestor'] = msg_obj.author.name
+
+        beatmap_id = await self.download_beatmap(url)
+        current_song['id'] = beatmap_id
+        self.playlist.append(song)
+        if not self.current_song:
+            self.play()
+
+        if len(self.playlist) > 1:
+            await self.on_queue(msg, msg_obj)
+
+        await self.send_np(msg_obj.channel)
+
 
 
 async def on_message(android18, msg, msg_obj):
