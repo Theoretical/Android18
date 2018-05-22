@@ -93,7 +93,7 @@ def download_beatmap(obj):
     
     req.close()
 
-    with ZipFile(path+file_name, "r") as z:
+    with ZipFile(path + filename, "r") as z:
         z.extractall('/tmp/' + beatmap_id + 'z')
 
     # we don't know the actual file name lol.
