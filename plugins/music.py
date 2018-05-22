@@ -530,7 +530,9 @@ class MusicPlayer:
 
         beatmap_id = await self.download_beatmap(url)
         current_song['id'] = beatmap_id
-        self.playlist.append(song)
+        
+        self.playlist.append(current_song)
+
         if not self.current_song:
             self.play()
 
