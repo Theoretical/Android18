@@ -85,7 +85,7 @@ def download_beatmap(obj):
     filename = beatmap_id + '.zip'
     req = session.get(download_url, stream=True)
 
-    with open(path + filename, 'w') as f:
+    with open(path + filename, 'wb') as f:
         for chunk in req.iter_content(chunk_size=1024):
             if chunk:
                 f.write(chunk)
