@@ -75,7 +75,7 @@ def login_to_osu(android18):
     return session
     
 def download_beatmap(obj):
-    session = obj['sesssion']
+    session = obj['session']
     url = ob['url']
 
     download_url = url + '/download'
