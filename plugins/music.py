@@ -102,7 +102,7 @@ def download_beatmap(obj):
     # we don't know the actual file name lol.
     for name in listdir('/tmp/' + beatmap_id + 'z'):
         if '.mp3' in name or '.ogg' in name:
-            os.rename(name, '/tmp/' + beatmap_id)
+            rename(name, '/tmp/' + beatmap_id)
     
     rmtree('/tmp/' + beatmap_id + 'z')
     return beatmap_id
