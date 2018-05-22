@@ -150,7 +150,7 @@ async def get_beatmap_info(url):
         'title': data['title'],
         'artist': data['artist'],
         'duration': max([_['total_length'] for _ in data['beatmaps']]),
-        'webpage_url': url
+        'webpage_url': page.url
     }
 
     return obj
