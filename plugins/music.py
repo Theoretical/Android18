@@ -80,6 +80,8 @@ def download_beatmap(obj):
 
     if '#' in url:
         url = url.split('#')[0]
+
+    url.rstrip('/')
     
     download_url = url + '/download'
     path = '/tmp/'
