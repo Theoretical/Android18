@@ -528,7 +528,7 @@ class MusicPlayer:
         current_song = await get_beatmap_info(url)
         current_song['requestor'] = msg_obj.author.name
 
-        beatmap_id = await self.download_beatmap(url)
+        beatmap_id = await self.download_beatmap(current_song['webpage_url'])
         current_song['id'] = beatmap_id
         
         self.playlist.append(current_song)
