@@ -1,4 +1,6 @@
+from aiohttp import ClientSession
 from asyncio import Lock, gather
+from bs4 import BeautifulSoup
 from datetime import timedelta
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.utils import find, get as discord_get
@@ -6,7 +8,7 @@ from lxml.html import fromstring
 from os import listdir, unlink, environ, rename
 from os.path import isfile
 from random import shuffle
-from spotipy import Spotify
+from spotipy import Spotify, oauth2
 from spotipy.util import prompt_for_user_token
 from time import time
 from urllib.parse import quote
@@ -120,6 +122,14 @@ def initialize(android18):
     # Each server android18 supports should be allowed to have their own music bot.
     android18.music = dict()
     android18.osu = login_to_osu(android18)
+    
+    secret = android18.config['Plugins']['Spotify_Secret']
+    client = android18.config['Plugins']['Spotify_Client']
+
+    auth = oauth2.SpotifyClientCredentials(client_id=client, client_secret=secret)
+    android18.spotify_token = auth.get_access_token()
+    print("Got access token: %s" % android18.spotify_token)
+    
     print ('Loaded android18\'s music plugin.')
 
 
@@ -165,16 +175,45 @@ async def get_beatmap_info(url):
 
 # These are our Spotify / Youtube helper functions.
 # I will not document how they work.
-async def search_youtube(title):
-    print('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
-    page = get('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
+async def search_youtube(obj):
+    android18 = obj['bot']
+    title = obj['title']
+
+    # fuck youtube....
+
+    url = "https://youtube.com/results?search_query=%s&pbj=1" % quote(title)
+
+    async with ClientSession() as s:
+        async with s.get(url) as res:
+            content = await res.text()
+            bs4 = BeautifulSoup(content, "html.parser")
+            results = []
+            for video in bs4.select(".yt-uix-tile-link"):
+                if video["href"].startswith("/watch?v="):
+                    video_info = {
+                        "title": video["title"],
+                        "link": video["href"],
+                        "id": video["href"][video["href"].index("=")+1:]
+                    }
+                    results.append(video_info)
+            if not len(results):
+                return None
+            return 'https://youtube.com/watch?v=%s' % results[0]['id']
+            
+
+    headers = {
+        'Referrer': 'https://android18.bot'
+    }
+    print('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), android18.config['Plugins']['Youtube']))
+    page = get('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), android18.config['Plugins']['Youtube']), headers=headers)
     data = page.json()
 
     # We're going to try to isolate these to better videos..
+
     videos = [x['id']['videoId'] for x in data['items'] if 'videoId' in x['id']]
 
-    page = get('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), environ['YT_KEY']))
-    print('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), environ['YT_KEY']))
+    page = get('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), android18.config['Plugins']['Youtube']), headers=headers)
+    print('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), android18.config['Plugins']['Youtube']))
     data = page.json()
     video_id = None
 
@@ -202,20 +241,23 @@ async def search_youtube(title):
 
     return None
 
-async def get_spotify_playlist(url):
+async def get_spotify_playlist(android18, url):
     # Url can be a spotify url or uri.
     user = ''
     playlist_id = ''
     songs = []
 
-    token = prompt_for_user_token('mdeception', 'user-library-read')
+    #token = prompt_for_user_token('mdeception', 'user-library-read')
 
-    spotify = Spotify(auth=token)
+    spotify = Spotify(auth=android18.spotify_token)
     if not 'http' in url:
         user = url.split('user:')[1].split(':')[0]
         playlist_id = url.split(':')[-1]
-    else:
+    elif 'user/' in url:
         user = url.split('user/')[1].split('/')[0]
+        playlist_id = url.split('/')[-1]
+    else:
+        user = 'spotify'
         playlist_id = url.split('/')[-1]
 
     playlist = spotify.user_playlist(user, playlist_id, fields='tracks, next, name')
@@ -223,12 +265,14 @@ async def get_spotify_playlist(url):
     tracks = playlist['tracks']
     for t in tracks['items']:
         track = t['track']
+        if not track: continue
         songs.append('%s %s' % (track['name'], ' & '.join(x['name'] for x in track['artists'])))
 
     while tracks['next']:
         tracks = spotify.next(tracks)
         for t in tracks['items']:
             track = t['track']
+            if not track: continue
             songs.append('%s %s' % (track['name'], ' & '.join(x['name'] for x in track['artists'])))
 
     return (playlist['name'], user, songs)
@@ -238,6 +282,7 @@ class MusicPlayer:
     def __init__(self, android18, channel):
         self.android18 = android18
         self.channel = channel
+        self.voice_channel = None
         self.playlist = list()
         self.music_lock = Lock()
         self.skip = Skip()
@@ -274,7 +319,7 @@ class MusicPlayer:
     # Youtube helper functions.
     def search_youtube(self, title):
         thread_pool = ThreadPoolExecutor(max_workers=4)
-        return self.android18.loop.run_in_executor(thread_pool, search_youtube, title)
+        return self.android18.loop.run_in_executor(thread_pool, search_youtube, {'title': title, 'bot': self.android18})
 
     def extract_info(self, *args, **kwargs):
         thread_pool = ThreadPoolExecutor(max_workers=2)
@@ -290,7 +335,6 @@ class MusicPlayer:
 
     # Our callback for when a song finishes.
     def on_finished(self):
-        print ("Finished called?")
         try:
             # Delete the song file (storage space!)
             unlink('/tmp/' + self.current_song['id'])
@@ -328,8 +372,11 @@ class MusicPlayer:
                     self.current_song = self.side_playlist.pop(0)
                     self.use_side_playlist = False
             except:
+                # we have no songs left? lets dip then.
+                print("No songs left in queue, time to exit!")
+                await self.quit()
                 return
-
+            
             # Create our music player and send our info to the channel.
             self.voice.play(FFmpegPCMAudio('/tmp/' + self.current_song['id']), after=lambda e: self.android18.loop.call_soon_threadsafe(self.on_finished))
             print(self.voice._player.after)
@@ -345,10 +392,8 @@ class MusicPlayer:
         self.playlist = []
         self.playing = False
         self.side_playlist = []
-        if self.music_player:
-            self.music_player.stop()
         if self.voice:
-            await self.voice.disconnect()
+            await self.voice.disconnect(force=True)
 
     async def process_commands(self, msg, msg_obj):
         callback_func = 'on_' + msg[0]
@@ -377,6 +422,7 @@ class MusicPlayer:
 
         if channel is not None:
             await channel.voice.channel.connect()
+            self.voice_channel = channel.voice.channel
             return
 
         channel = discord_get(member.guild.channels, name=default_name)
@@ -388,10 +434,10 @@ class MusicPlayer:
 
         # Step 1.) Set our current time and fetch the spotify playlist.
         t = time()
-        playlist, user, songs = await get_spotify_playlist(msg[1])
+        playlist, user, songs = await get_spotify_playlist(self.android18, msg[1])
 
         # Step 2.) Search youtube for every song .
-        yt_search = gather(*(search_youtube(song) for song in songs))
+        yt_search = gather(*(search_youtube({'bot': self.android18, 'title': song}) for song in songs))
         yt_songs = await yt_search
         yt_songs = [song for song in yt_songs if song is not None]
 
@@ -403,9 +449,9 @@ class MusicPlayer:
 
         # Find a bot channel if we have one...
         if msg_obj.channel.name != 'bot':
-            channel = find(msg_obj.guild.channels, name='bot')
+            channel = discord_get(msg_obj.guild.channels, name='bot')
             self.channel = channel or msg_obj.channel
-
+        
         # Step 4.) Download all songs for the playlist.
         playlist_task = gather(*(self.extract_info(url=item, download=True) for item in yt_songs))
         playlist = await playlist_task
@@ -532,6 +578,7 @@ class MusicPlayer:
 
         channel = find(lambda m: m.id == member.id and m.guild.id == member.guild.id and m.voice is not None, member.guild.members)
         await channel.voice.channel.connect()
+        self.voice_channel = channel.voice.channel
         await msg_obj.channel.send( '`Joining channel with {}`'.format(member))
 
     async def on_osu(self, msg, msg_obj):

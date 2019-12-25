@@ -1,7 +1,7 @@
 from discord.utils import find
 from sys import modules
-from aiohttp import get, post
 from lxml.html import fromstring
+from requests import get, post
 from terminaltables import AsciiTable
 from urllib.parse import quote
 
@@ -31,12 +31,12 @@ async def login(android18):
         'includePerms': True
     }
 
-    cred = await post(token_url, headers={'Authorization': 'basic ' + launcher}, data=cred_data)
-    data = await cred.json()
+    cred = post(token_url, headers={'Authorization': 'basic ' + launcher}, data=cred_data)
+    data = cred.json()
     refresh_token = data['access_token']
 
-    exchange = await get(exchange_url, headers={'Authorization': 'bearer ' + refresh_token})
-    exchange_data = await exchange.json()
+    exchange = get(exchange_url, headers={'Authorization': 'bearer ' + refresh_token})
+    exchange_data = exchange.json()
 
     code = exchange_data['code']
 
@@ -47,16 +47,16 @@ async def login(android18):
         'token_type': 'egl'
     }
 
-    token_res = await post(token_url, headers={'Authorization': 'basic ' + client}, data=token_data)
-    token_data = await token_res.json()
+    token_res = post(token_url, headers={'Authorization': 'basic ' + client}, data=token_data)
+    token_data = token_res.json()
     return token_data['expires_at'], token_data['access_token'], token_data['refresh_token']
 
 
 async def call_fortnite(url, data=None):
     global token
 
-    res = await get(url, headers={'Authorization': 'bearer ' + token}, data=data)
-    return await res.json()
+    res = get(url, headers={'Authorization': 'bearer ' + token}, data=data)
+    return res.json()
 
 async def get_user(username):
     lookup_url = 'https://persona-public-service-prod06.ol.epicgames.com/persona/api/public/account/lookup?q={user}'
@@ -106,8 +106,8 @@ def convert_stats(stat_data):
 
 async def get_tracker(user):
     global tracker_key
-    page = await get('https://api.fortnitetracker.com/v1/profile/pc/' + user, headers={'TRN-Api-Key': tracker_key})
-    return await page.json()
+    page = get('https://api.fortnitetracker.com/v1/profile/pc/' + user, headers={'TRN-Api-Key': tracker_key})
+    return page.json()
 
 
 
