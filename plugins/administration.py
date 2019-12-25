@@ -15,23 +15,23 @@ async def on_kiss(android18, args, msg):
     emoji = ':kissing_heart:'
     user = msg.author
     if len(args) > 1:
-        user = find(lambda m: m.mention == args[1], msg.server.members)
+        user = find(lambda m: m.mentioned_in(msg), msg.guild.members)
 
-    await android18.send_message(msg.channel, 'Here is your kiss {} {}'.format(user.mention, emoji))
+    await msg.channel.send('Here is your kiss {} {}'.format(user.mention, emoji))
 
 async def on_clear(android18, args, msg):
-    if not msg.author.server_permissions.administrator: return
-    await android18.purge_from(msg.channel, limit=int(args[1]))
+    if not msg.author.guild_permissions.administrator: return
+    await msg.channel.purge(check=None, limit=int(args[1]))
 
 async def on_git(android18, args, msg):
-    await android18.send_message(msg.channel, '`My github is located at: `https://github.com/Theoretical/android18')
+    await msg.channel.send('`My github is located at: `https://github.com/Theoretical/android18')
 
 async def on_avatar(android18, args, msg):
     user = msg.author
     if len(args) > 1:
-        user = find(lambda m: m.mention == args[1], msg.server.members)
+        user = find(lambda m: m.mentioned_in(msg), msg.guild.members)
 
-    await android18.send_message(msg.channel, '`{} avatar is: `{}'.format(user.name, user.avatar_url))
+    await msg.channel.send('`{} avatar is: `{}'.format(user.name, user.avatar_url))
 
 async def on_message(android18, msg, msg_obj):
     callback_func = 'on_' + msg[0]

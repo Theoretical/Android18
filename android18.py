@@ -1,4 +1,3 @@
-from aiohttp import get
 from configparser import ConfigParser
 from discord import Client, opus, enums
 from discord.utils import get
@@ -68,8 +67,8 @@ class Android18(Client):
 
         # This is an Android18 only plugin used to reload all of our plugins during runtime.
         elif message_args[0] == 'reload':
-            if not message.author.server_permissions.administrator:
-                await self.delete_message(message)
+            if not message.author.guild_permissions.administrator:
+                await message.delete()
                 return
 
             delete_message = True
@@ -81,15 +80,15 @@ class Android18(Client):
                 if hasattr(plugin, 'reinitialize'):
                     await plugin.reinitialize(self)
 
-            await self.send_message(message.channel, 'Successfully reloaded {} plugins'.format(len(self.plugins)))
+            await message.channel.send('Successfully reloaded {} plugins'.format(len(self.plugins)))
 
-        if delete_message: await self.delete_message(message)
+        if delete_message: await message.delete()
 
 android18 = Android18('.')
 
 @android18.event
 async def on_ready():
-    servers = android18.servers
+    servers = android18.guilds
 
     for server in servers:
         main_channel = get(server.channels, type=enums.ChannelType.text, position=0)

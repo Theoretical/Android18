@@ -1,6 +1,6 @@
-from aiohttp import get
 from asyncio import Lock, gather
 from datetime import timedelta
+from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.utils import find, get as discord_get
 from lxml.html import fromstring
 from os import listdir, unlink, environ, rename
@@ -13,9 +13,13 @@ from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 import functools
 import youtube_dl
-from requests import Session
+from requests import Session, get
 from zipfile import ZipFile
 from shutil import rmtree
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # We still will allow only skipping by 2 people unless the user has `admin`
 class Skip:
@@ -48,6 +52,7 @@ ytdl_format_options = {
 }
 
 def login_to_osu(android18):
+    return
     # for now hardcode this.
     username = android18.config['osu']['username']
     password = android18.config['osu']['password']
@@ -141,8 +146,8 @@ async def reinitialize(android18):
 
 async def get_beatmap_info(url):
     from json import loads
-    page = await get(url)
-    content = await page.text()
+    page = get(url)
+    content = page.content
 
     nodes = fromstring(content)
     json_data = nodes.xpath('//script[@id="json-beatmapset"]')[0].text
@@ -162,15 +167,15 @@ async def get_beatmap_info(url):
 # I will not document how they work.
 async def search_youtube(title):
     print('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
-    page = await get('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
-    data = await page.json()
+    page = get('https://www.googleapis.com/youtube/v3/search?part=id,snippet&q=%s&key=%s' % (quote(title), environ['YT_KEY']))
+    data = page.json()
 
     # We're going to try to isolate these to better videos..
     videos = [x['id']['videoId'] for x in data['items'] if 'videoId' in x['id']]
 
-    page = await get('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), environ['YT_KEY']))
+    page = get('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), environ['YT_KEY']))
     print('https://www.googleapis.com/youtube/v3/videos?part=id,snippet,contentDetails,status&id=%s&key=%s' % (','.join(videos), environ['YT_KEY']))
-    data = await page.json()
+    data = page.json()
     video_id = None
 
     for item in data['items']:
@@ -250,7 +255,10 @@ class MusicPlayer:
     @property
     # Gets our current voice connection.
     def voice(self):
-        return self.android18.voice_client_in(self.channel.server)
+        for _ in self.android18.voice_clients:
+            if self.channel.guild == _.guild:
+                return _
+        return None
 
     @property
     # Gets our current song progress.
@@ -282,6 +290,7 @@ class MusicPlayer:
 
     # Our callback for when a song finishes.
     def on_finished(self):
+        print ("Finished called?")
         try:
             # Delete the song file (storage space!)
             unlink('/tmp/' + self.current_song['id'])
@@ -306,8 +315,8 @@ class MusicPlayer:
         # if for some reason we're not connected, join our default channel (why networking why?!)
         if not self.voice:
             # default to AFK channel..
-            channel = discord_get(self.channel.server.channels, name='Praying With android18')
-            await self.android18.join_voice_channel(channel)
+            channel = discord_get(self.channel.guild.channels, name='Praying With android18')
+            await channel.connect()
 
         # We do NOT want to have multiple songs attempting to play.
         with await self.music_lock:
@@ -322,13 +331,15 @@ class MusicPlayer:
                 return
 
             # Create our music player and send our info to the channel.
-            self.music_player = self.voice.create_ffmpeg_player('/tmp/' + self.current_song['id'], use_avconv=True)
+            self.voice.play(FFmpegPCMAudio('/tmp/' + self.current_song['id']), after=lambda e: self.android18.loop.call_soon_threadsafe(self.on_finished))
+            print(self.voice._player.after)
+            self.voice.source = PCMVolumeTransformer(self.voice.source)
+            self.music_player = self.voice._player 
+            
             self.music_player.loops = 0 #???
-            self.music_player.after = lambda: self.android18.loop.call_soon_threadsafe(self.on_finished)
             await self.send_np(self.channel)
 
-            self.music_player.start()
-            self.music_player.volume = self.volume
+            self.music_player.source.volume = self.volume
 
     async def quit(self):
         self.playlist = []
@@ -355,21 +366,21 @@ class MusicPlayer:
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=song.get('duration', 0)))
         playlist = 'side' if self.use_side_playlist else 'main'
-        await self.android18.send_message(channel, '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
+        await channel.send( '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
 
     async def join_default_channel(self, member):
         if self.voice:
             return
 
         default_name = 'Praying with android18'
-        channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
+        channel = find(lambda m: m.id == member.id and m.guild.id == member.guild.id and m.voice is not None, member.guild.members)
 
         if channel is not None:
-            await self.android18.join_voice_channel(channel.voice_channel)
+            await channel.voice.channel.connect()
             return
 
-        channel = discord_get(member.server.channels, name=default_name)
-        await self.android18.join_voice_channel(channel)
+        channel = discord_get(member.guild.channels, name=default_name)
+        await channel.connect()
 
 
     async def on_spotify(self, msg, msg_obj):
@@ -387,12 +398,12 @@ class MusicPlayer:
         # Step 3.) Assume my searching isn't ass.
         ended = time()
         total_songs = len(songs)
-        await self.android18.send_message(msg_obj.channel, '`Found: %s songs in playlist: %s by %s in %s seconds.!`' % (total_songs, playlist, user, ended - t))
+        await msg_obj.channel.send( '`Found: %s songs in playlist: %s by %s in %s seconds.!`' % (total_songs, playlist, user, ended - t))
         await self.join_default_channel(msg_obj.author)
 
         # Find a bot channel if we have one...
         if msg_obj.channel.name != 'bot':
-            channel = find(msg_obj.server.channels, name='bot')
+            channel = find(msg_obj.guild.channels, name='bot')
             self.channel = channel or msg_obj.channel
 
         # Step 4.) Download all songs for the playlist.
@@ -432,14 +443,14 @@ class MusicPlayer:
         length = str(timedelta(seconds=self.current_song.get('duration', 0)))
         total_len = sum([x.get('duration', 0) for x in self.playlist])
         current_playlist = 'Side' if self.use_side_playlist else 'Main'
-        await self.android18.send_message(msg_obj.channel, '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, str(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
+        await msg_obj.channel.send( '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, str(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
 
     async def on_play(self, msg, msg_obj):
         await self.join_default_channel(msg_obj.author)
 
         # Find a bot channel if we have one...
         if msg_obj.channel.name != 'bot':
-            channel = discord_get(msg_obj.server.channels, name='bot')
+            channel = discord_get(msg_obj.guild.channels, name='bot')
             self.channel = channel or msg_obj.channel
 
         if 'playlist' not in msg[1]:
@@ -460,7 +471,7 @@ class MusicPlayer:
             playlist = [x for x in playlist if x]
 
             end = time()
-            await self.android18.send_message(msg_obj.channel, '```Loaded: %s songs in %s seconds.```' % (len(playlist), end - t))
+            await msg_obj.channel.send( '```Loaded: %s songs in %s seconds.```' % (len(playlist), end - t))
             if msg[-1] == 'shuffle':
                 for i in range(0, 5):
                     shuffle(playlist)
@@ -491,37 +502,37 @@ class MusicPlayer:
     async def on_volume(self, msg, msg_obj):
 
         if len(msg) == 1:
-            await self.android18.send_message(msg_obj.channel, '`Current Volume: %s`' % self.volume)
+            await msg_obj.channel.send( '`Current Volume: %s`' % self.volume)
         else:
             if not str.isdigit(msg[1]): return
             self.volume = int(msg[1]) / 100
 
             if self.music_player:
-                self.music_player.volume = self.volume
+                self.music_player.source.volume = self.volume
 
-            await self.android18.send_message(msg_obj.channel, '`{} set the volume to {}`'.format(msg_obj.author, self.volume))
+            await msg_obj.channel.send( '`{} set the volume to {}`'.format(msg_obj.author, self.volume))
 
     async def on_skip(self, msg, msg_obj):
         self.skip.add(msg_obj.author)
 
-        if (self.music_player and msg_obj.author.server_permissions.administrator) or self.skip.allowed:
+        if (self.music_player and msg_obj.author.guild_permissions.administrator) or self.skip.allowed:
             self.music_player.stop()
             self.music_player = None
             return True
 
-        await self.android18.send_message(msg_obj.channel, '`{} Started a skip request! Need 1 more person to request a skip to continue!`'.format(msg_obj.author))
+        await msg_obj.channel.send( '`{} Started a skip request! Need 1 more person to request a skip to continue!`'.format(msg_obj.author))
 
     async def on_summon(self, msg, msg_obj):
         if self.voice:
             await self.voice.disconnect()
         if len(msg) > 1:
-            member = find(lambda m: m.mention == msg[1], msg_obj.server.members)
+            member = find(lambda m: m.mention == msg[1], msg_obj.guild.members)
         else:
             member  = msg_obj.author
 
-        channel = find(lambda m: m.id == member.id and m.server.id == member.server.id and m.voice_channel is not None, member.server.members)
-        await self.android18.join_voice_channel(channel.voice_channel)
-        await self.android18.send_message(msg_obj.channel, '`Joining channel with {}`'.format(member))
+        channel = find(lambda m: m.id == member.id and m.guild.id == member.guild.id and m.voice is not None, member.guild.members)
+        await channel.voice.channel.connect()
+        await msg_obj.channel.send( '`Joining channel with {}`'.format(member))
 
     async def on_osu(self, msg, msg_obj):
         await self.join_default_channel(msg_obj.author)
@@ -546,7 +557,8 @@ class MusicPlayer:
 
 
 async def on_message(android18, msg, msg_obj):
-    if msg_obj.server not in android18.music:
-        android18.music[msg_obj.server] = MusicPlayer(android18, msg_obj.channel)
+    print(msg_obj)
+    if msg_obj.guild not in android18.music:
+        android18.music[msg_obj.guild] = MusicPlayer(android18, msg_obj.channel)
 
-    return await android18.music[msg_obj.server].process_commands(msg, msg_obj)
+    return await android18.music[msg_obj.guild].process_commands(msg, msg_obj)
