@@ -4,10 +4,12 @@ from bs4 import BeautifulSoup
 from datetime import timedelta
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.utils import find, get as discord_get
+from json import loads
 from lxml.html import fromstring
 from os import listdir, unlink, environ, rename
-from os.path import isfile
+from os.path import isfile, isdir, join as pjoin
 from random import shuffle
+from shutil import copyfile
 from spotipy import Spotify, oauth2
 from spotipy.util import prompt_for_user_token
 from time import time
@@ -53,8 +55,32 @@ ytdl_format_options = {
     'source_address': '0.0.0.0'
 }
 
+def index_osu(android18):
+    # We're gonna do something cool here (rip space maybe?)
+    path = android18.config['osu']['path']
+    index = {}
+
+    for song_folder in listdir(path):
+        media_file = None
+        if not isdir(pjoin(path, song_folder)): continue
+        song_directory = pjoin(path, song_folder)
+        for song_file in listdir(song_directory):
+            if song_file.endswith('.mp3') or song_file.endswith('.ogg'):
+                media_file = pjoin(song_directory, song_file)
+                break
+        
+        if not media_file: continue
+        
+        song_id = song_folder.split(' ')[0]
+        index[song_id] = media_file
+
+    print('Indexed: {} osu songs for caching!'.format(len(index)))
+    android18.osu_index = index
+
+
+    
+
 def login_to_osu(android18):
-    return
     # for now hardcode this.
     username = android18.config['osu']['username']
     password = android18.config['osu']['password']
@@ -84,18 +110,23 @@ def login_to_osu(android18):
 def download_beatmap(obj):
     session = obj['session']
     url = obj['url']
+    path = obj['path']
 
+    print('Obj: %s' % obj)
     if '#' in url:
         url = url.split('#')[0]
 
     url = url.rstrip('/')
     
     download_url = url + '/download'
-    path = '/tmp/'
+    print(download_url)
     
     beatmap_id = url.split('/')[-1]
-    filename = beatmap_id + '.zip'
     req = session.get(download_url, stream=True)
+
+    filename = req.headers['content-disposition'].split('filename=')[1][1:-2]
+    filename = filename.replace('.osz', '.zip')
+    print(filename)
 
     with open(path + filename, 'wb') as f:
         for chunk in req.iter_content(chunk_size=1024):
@@ -104,17 +135,18 @@ def download_beatmap(obj):
                 f.flush()
     
     req.close()
+    print('Wrote zip at: %s' % (path + filename))
 
+    no_ext = filename.split('.zip')[0]
     with ZipFile(path + filename, "r") as z:
-        z.extractall('/tmp/' + beatmap_id + 'z')
+        z.extractall(path + no_ext)
 
-    zip_path = '/tmp/%sz' % beatmap_id
+    zip_path = '%s/%s' % (path, no_ext)
     # we don't know the actual file name lol.
     for name in listdir(zip_path):
         if '.mp3' in name or '.ogg' in name:
-            rename('%s/%s' % (zip_path,name), '/tmp/' + beatmap_id)
+            copyfile('%s/%s' % (zip_path,name), '/tmp/' + beatmap_id)
     
-    rmtree('/tmp/' + beatmap_id + 'z')
     return beatmap_id
 
 
@@ -122,6 +154,7 @@ def initialize(android18):
     # Each server android18 supports should be allowed to have their own music bot.
     android18.music = dict()
     android18.osu = login_to_osu(android18)
+    index_osu(android18)
     
     secret = android18.config['Plugins']['Spotify_Secret']
     client = android18.config['Plugins']['Spotify_Client']
@@ -154,23 +187,24 @@ async def reinitialize(android18):
 
     android18.music = dict()
 
-async def get_beatmap_info(url):
-    from json import loads
-    page = get(url)
-    content = page.content
+async def get_beatmap_info(url):  
+    async with ClientSession() as s:
+        async with s.get(url) as res:
+            content = await res.text()
 
-    nodes = fromstring(content)
-    json_data = nodes.xpath('//script[@id="json-beatmapset"]')[0].text
+            nodes = fromstring(content)
+            json_data = nodes.xpath('//script[@id="json-beatmapset"]')[0].text
 
-    data = loads(json_data)
-    obj = {
-        'title': data['title'],
-        'artist': data['artist'],
-        'duration': max([_['total_length'] for _ in data['beatmaps']]),
-        'webpage_url': page.url
-    }
+            data = loads(json_data)
+            obj = {
+                'title': data['title'],
+                'artist': data['artist'],
+                'duration': max([_['total_length'] for _ in data['beatmaps']]),
+                'webpage_url': res.url,
+                'id': str(data['id'])
+            }
 
-    return obj
+            return obj
 
 
 # These are our Spotify / Youtube helper functions.
@@ -310,11 +344,10 @@ class MusicPlayer:
     def progress(self):
         return round(self.music_player.loops * 0.02) if self.music_player else 0
 
-
     # Download osu file.
     def download_beatmap(self, url):
         thread_pool = ThreadPoolExecutor(max_workers=2)
-        return self.android18.loop.run_in_executor(thread_pool, download_beatmap, {'url': url, 'session': self.android18.osu})
+        return self.android18.loop.run_in_executor(thread_pool, download_beatmap, {'url': url, 'session': self.android18.osu, 'path': self.android18.config['osu']['path']})
 
     # Youtube helper functions.
     def search_youtube(self, title):
@@ -337,7 +370,8 @@ class MusicPlayer:
     def on_finished(self):
         try:
             # Delete the song file (storage space!)
-            unlink('/tmp/' + self.current_song['id'])
+            if not self.current_song.get('osu_index'):
+                unlink('/tmp/' + self.current_song['id'])
         except:
             pass
 
@@ -378,7 +412,11 @@ class MusicPlayer:
                 return
             
             # Create our music player and send our info to the channel.
-            self.voice.play(FFmpegPCMAudio('/tmp/' + self.current_song['id']), after=lambda e: self.android18.loop.call_soon_threadsafe(self.on_finished))
+            audio_file = '/tmp/' + self.current_song['id']
+
+            if self.current_song.get('osu_index'):
+                audio_file = self.current_song['osu_index']
+            self.voice.play(FFmpegPCMAudio(audio_file), after=lambda e: self.android18.loop.call_soon_threadsafe(self.on_finished))
             print(self.voice._player.after)
             self.voice.source = PCMVolumeTransformer(self.voice.source)
             self.music_player = self.voice._player 
@@ -588,8 +626,12 @@ class MusicPlayer:
         current_song = await get_beatmap_info(url)
         current_song['requestor'] = msg_obj.author.name
 
-        beatmap_id = await self.download_beatmap(current_song['webpage_url'])
-        current_song['id'] = beatmap_id
+        if not self.android18.osu_index.get(current_song['id']):
+            beatmap_id = await self.download_beatmap(str(current_song['webpage_url']))
+            current_song['id'] = beatmap_id
+        else:
+            print('Song is in our cache!')
+            current_song['osu_index'] = self.android18.osu_index[current_song['id']]
         
         self.playlist.append(current_song)
 
