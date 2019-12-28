@@ -294,7 +294,16 @@ async def get_spotify_playlist(android18, url):
         user = 'spotify'
         playlist_id = url.split('/')[-1]
 
-    playlist = spotify.user_playlist(user, playlist_id, fields='tracks, next, name')
+    try:
+        playlist = spotify.user_playlist(user, playlist_id, fields='tracks, next, name')
+    except:
+        secret = android18.config['Plugins']['Spotify_Secret']
+        client = android18.config['Plugins']['Spotify_Client']
+
+        auth = oauth2.SpotifyClientCredentials(client_id=client, client_secret=secret)
+        android18.spotify_token = auth.get_access_token()
+        playlist = spotify.user_playlist(user, playlist_id, fields='tracks, next, name')
+
 
     tracks = playlist['tracks']
     for t in tracks['items']:

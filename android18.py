@@ -33,6 +33,15 @@ class Android18(Client):
 
         print('Successfully loaded: %s plugins' % len(self.plugins))
 
+
+    @asyncio.coroutine
+    async def on_raw_reaction_add(self, reaction):
+        for plugin in self.plugins:
+            if hasattr(plugin, 'on_reaction'):
+                print('Plugin: %s has a reaction callback!' % plugin)
+                await plugin.on_reaction(self, reaction)
+
+
     @asyncio.coroutine
     async def on_message(self, message):
         message_args = message.content.split(' ')
