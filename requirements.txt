@@ -5,7 +5,7 @@ cffi==1.11.1
 chardet==3.0.4
 discord.py==0.16.12
 idna==2.6
-lxml==3.8.0
+lxml==4.6.3
 multidict==3.2.0
 pycparser==2.18
 PyNaCl==1.0.1
