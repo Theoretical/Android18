@@ -2,7 +2,7 @@ from aiohttp import ClientSession
 from asyncio import Lock, gather
 from bs4 import BeautifulSoup
 from datetime import timedelta
-from discord import FFmpegPCMAudio, PCMVolumeTransformer
+from discord import Embed, FFmpegPCMAudio, PCMVolumeTransformer
 from discord.utils import find, get as discord_get
 from json import loads
 from lxml.html import fromstring
@@ -16,7 +16,7 @@ from time import time
 from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 import functools
-import youtube_dl
+from yt_dlp import YoutubeDL
 from requests import Session, get
 from zipfile import ZipFile
 from shutil import rmtree
@@ -119,14 +119,13 @@ def download_beatmap(obj):
     url = url.rstrip('/')
     
     download_url = url + '/download'
-    print(download_url)
     
     beatmap_id = url.split('/')[-1]
+    download_url = f'https://kitsu.moe/d/{beatmap_id}'
     req = session.get(download_url, stream=True)
 
-    filename = req.headers['content-disposition'].split('filename=')[1][1:-2]
+    filename = req.headers['content-disposition'].split('filename=')[1][1:-1]
     filename = filename.replace('.osz', '.zip')
-    print(filename)
 
     with open(path + filename, 'wb') as f:
         for chunk in req.iter_content(chunk_size=1024):
@@ -215,24 +214,23 @@ async def search_youtube(obj):
 
     # fuck youtube....
 
-    url = "https://youtube.com/results?search_query=%s&pbj=1" % quote(title)
+    url = "https://youtube.com/results?search_query=%s" % quote(title)
 
     async with ClientSession() as s:
         async with s.get(url) as res:
             content = await res.text()
-            bs4 = BeautifulSoup(content, "html.parser")
-            results = []
-            for video in bs4.select(".yt-uix-tile-link"):
-                if video["href"].startswith("/watch?v="):
-                    video_info = {
-                        "title": video["title"],
-                        "link": video["href"],
-                        "id": video["href"][video["href"].index("=")+1:]
-                    }
-                    results.append(video_info)
-            if not len(results):
+
+            # woo
+            start = content.split('ytInitialData = ')[1]
+            sub = start.split(';</script>')[0]
+            obj = loads(sub)
+
+            try:
+                video = obj['contents']['twoColumnSearchResultsRenderer']['primaryContents']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents'][1]['videoRenderer']
+            except:
                 return None
-            return 'https://youtube.com/watch?v=%s' % results[0]['id']
+
+            return 'https://youtube.com/watch?v=%s' % video['videoId']
             
 
     headers = {
@@ -282,20 +280,11 @@ async def get_spotify_playlist(android18, url):
     songs = []
 
     #token = prompt_for_user_token('mdeception', 'user-library-read')
-
-    spotify = Spotify(auth=android18.spotify_token)
-    if not 'http' in url:
-        user = url.split('user:')[1].split(':')[0]
-        playlist_id = url.split(':')[-1]
-    elif 'user/' in url:
-        user = url.split('user/')[1].split('/')[0]
-        playlist_id = url.split('/')[-1]
-    else:
-        user = 'spotify'
-        playlist_id = url.split('/')[-1]
+    print(url)
+    spotify = Spotify(auth=android18.spotify_token['access_token'])
 
     try:
-        playlist = spotify.user_playlist(user, playlist_id, fields='tracks, next, name')
+        playlist = spotify.playlist(url, fields='tracks, next, name')
     except:
         secret = android18.config['Plugins']['Spotify_Secret']
         client = android18.config['Plugins']['Spotify_Client']
@@ -329,7 +318,7 @@ class MusicPlayer:
         self.playlist = list()
         self.music_lock = Lock()
         self.skip = Skip()
-        self.ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+        self.ytdl = YoutubeDL(ytdl_format_options)
         self.current_song = None
         self.playing = False
         self.paused = False
@@ -425,15 +414,16 @@ class MusicPlayer:
 
             if self.current_song.get('osu_index'):
                 audio_file = self.current_song['osu_index']
+
             self.voice.play(FFmpegPCMAudio(audio_file), after=lambda e: self.android18.loop.call_soon_threadsafe(self.on_finished))
             print(self.voice._player.after)
             self.voice.source = PCMVolumeTransformer(self.voice.source)
             self.music_player = self.voice._player 
+            self.music_player.source.volume = self.volume
             
             self.music_player.loops = 0 #???
             await self.send_np(self.channel)
 
-            self.music_player.source.volume = self.volume
 
     async def quit(self):
         self.playlist = []
@@ -458,7 +448,16 @@ class MusicPlayer:
         position = str(timedelta(seconds=self.progress))
         length = str(timedelta(seconds=song.get('duration', 0)))
         playlist = 'side' if self.use_side_playlist else 'main'
-        await channel.send( '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
+
+        embed = Embed(title='Now Playing', description=song['title'], color=0x20923d)
+        embed.set_author(name=song['requestor'])
+        embed.add_field(name="Requested by", value=song['requestor'])
+        embed.add_field(name="Playtime", value=f"{position}/{length}")
+        embed.add_field(name='Link', value=song['webpage_url'], inline=True)
+        embed.set_image(url=f"https://img.youtube.com/vi/{song['id']}/maxresdefault.jpg")
+        await channel.send(embed=embed)
+
+        #await channel.send( '```Now Playing: {0} requested by {1} on {5} | Timestamp: {2} | Length: {3}\n{4}```'.format(song['title'], song['requestor'], position, length, song['webpage_url'], playlist))
 
     async def join_default_channel(self, member):
         if self.voice:
@@ -509,6 +508,9 @@ class MusicPlayer:
             s['requestor'] = msg_obj.author.name
 
         self.playlist.extend(playlist)
+
+        for i in range(0, 5):
+            shuffle(self.playlist)
         if not self.current_song:
             self.play()
 
@@ -526,17 +528,23 @@ class MusicPlayer:
     async def on_queue(self, msg, msg_obj):
         if self.current_song is None: return
 
-        queue_str = ''
+        page = 0
+        if len(msg) > 1 and 'queue' in msg[0]:
+            page = int(msg[1])
 
-        playlist = self.playlist if not self.use_side_playlist else self.side_playlist
-        for song in playlist[:15]:
-            queue_str += '%s: (%ss). requested by: %s\n' % (song['title'], str(timedelta(seconds=song['duration'])), song['requestor'])
 
-        position = str(timedelta(seconds=self.progress))
-        length = str(timedelta(seconds=self.current_song.get('duration', 0)))
+        embed = Embed(title='Current Queue', description=len(self.playlist), color=0x20923d)
+        embed.set_author(name='Chizuru')
+
         total_len = sum([x.get('duration', 0) for x in self.playlist])
-        current_playlist = 'Side' if self.use_side_playlist else 'Main'
-        await msg_obj.channel.send( '```Playlist: {} | Queue length: {} | Queue Size: {} | Current Song Progress: {}/{}\n{}```'.format(current_playlist, str(timedelta(seconds=total_len)), len(playlist), position, length, queue_str))
+        embed.add_field(name='Page', value=f'{page + 1} / {int(len(self.playlist) / 15) + 1}')
+        embed.add_field(name="Total Playtime", value=str(timedelta(seconds=total_len)))
+        embed.set_image(url=f"https://img.youtube.com/vi/{self.playlist[0]['id']}/maxresdefault.jpg")
+
+        for song in self.playlist[page * 15:page * 15 + 15]:
+            embed.add_field(name=song['title'], value=f'{str(timedelta(seconds=song["duration"]))} - {song["requestor"]}', inline=False)
+        
+        await msg_obj.channel.send(embed=embed)
 
     async def on_play(self, msg, msg_obj):
         await self.join_default_channel(msg_obj.author)
@@ -546,8 +554,24 @@ class MusicPlayer:
             channel = discord_get(msg_obj.guild.channels, name='bot')
             self.channel = channel or msg_obj.channel
 
-        if 'playlist' not in msg[1]:
-            song = await self.extract_info(url=msg[1], download=True)
+        # not a link, lets search
+        url = msg[1]
+
+        if 'spotify.com' in url:
+            return self.on_spotify(msg, msg_obj)
+
+        if 'http' not in url:
+            info = ' '.join(msg[1:])
+            result = await search_youtube({'bot': self.android18, 'title': info})
+
+            if result:
+                url = result
+            else:
+                msg_obj.channel.send("Unable to find a song!")
+                return
+
+        if 'playlist' not in url:
+            song = await self.extract_info(url=url, download=True)
             song['requestor'] = msg_obj.author.name
 
             if msg[-1] == 'side':
@@ -565,9 +589,8 @@ class MusicPlayer:
 
             end = time()
             await msg_obj.channel.send( '```Loaded: %s songs in %s seconds.```' % (len(playlist), end - t))
-            if msg[-1] == 'shuffle':
-                for i in range(0, 5):
-                    shuffle(playlist)
+            for i in range(0, 5):
+                shuffle(playlist)
             for song in playlist:
                 song['requestor'] = msg_obj.author.name
 
@@ -609,15 +632,20 @@ class MusicPlayer:
         self.skip.add(msg_obj.author)
 
         if (self.music_player and msg_obj.author.guild_permissions.administrator) or self.skip.allowed:
-            self.music_player.stop()
+            if self.music_player:
+                self.music_player.stop()
             self.music_player = None
             return True
 
         await msg_obj.channel.send( '`{} Started a skip request! Need 1 more person to request a skip to continue!`'.format(msg_obj.author))
 
     async def on_summon(self, msg, msg_obj):
-        if self.voice:
-            await self.voice.disconnect()
+        try:
+            if self.voice:
+                await self.voice.disconnect()
+        except:
+            pass
+
         if len(msg) > 1:
             member = find(lambda m: m.mention == msg[1], msg_obj.guild.members)
         else:
@@ -626,6 +654,9 @@ class MusicPlayer:
         channel = find(lambda m: m.id == member.id and m.guild.id == member.guild.id and m.voice is not None, member.guild.members)
         await channel.voice.channel.connect()
         self.voice_channel = channel.voice.channel
+
+        if not self.current_song:
+            self.play()
         await msg_obj.channel.send( '`Joining channel with {}`'.format(member))
 
     async def on_osu(self, msg, msg_obj):

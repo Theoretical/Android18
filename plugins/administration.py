@@ -22,7 +22,7 @@ async def on_kiss(android18, args, msg):
 
 async def on_clear(android18, args, msg):
     if not msg.author.guild_permissions.administrator: return
-    await msg.channel.purge(check=None, limit=int(args[1]))
+    await msg.channel.purge(limit=int(args[1]))
 
 async def on_git(android18, args, msg):
     await msg.channel.send('`My github is located at: `https://github.com/Theoretical/android18')

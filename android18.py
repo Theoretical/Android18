@@ -1,5 +1,5 @@
 from configparser import ConfigParser
-from discord import Client, opus, enums
+from discord import Client, Intents, enums, opus
 from discord.utils import get
 from importlib import import_module, reload
 from os import environ, listdir
@@ -13,7 +13,9 @@ opus.load_opus('/usr/lib/x86_64-linux-gnu/libopus.so.0')
 class Android18(Client):
     def __init__(self, command_prefix):
         # Init the normal discord client.
-        Client.__init__(self)
+        intents = Intents.all()
+        intents.message_content = True
+        Client.__init__(self, intents=intents)
 
         self.command_prefix = command_prefix
         self.plugins = []
@@ -71,7 +73,7 @@ class Android18(Client):
                     print(str(plugin))
                     help_str += 'Plugin: {}\n{}\n\n'.format(plugin_name, plugin.get_helpstr())
 
-            await self.send_message(message.channel, '```{}```'.format(help_str))
+            await message.channel.send('```{}```'.format(help_str))
 
 
         # This is an Android18 only plugin used to reload all of our plugins during runtime.
